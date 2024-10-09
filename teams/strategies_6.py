@@ -1,8 +1,14 @@
 import random
-import time
-from CardGame import Card
+from CardGame import Deck
 
-random_seed = 11024891
+RANDOM_SEED = 110248341
+
+PARTNER_MAP = {
+    "North": "South", 
+    "East": "West", 
+    "South": "North", 
+    "West": "East"
+}
 
 def playing(player, deck):
     """
@@ -13,8 +19,7 @@ def playing(player, deck):
     if not player.hand:
         return None
 
-    deck = get_deck_of_cards()
-    cards_to_indices = create_card_to_index_mapping(random_seed, deck)
+    cards_to_indices, _ = create_card_to_index_mapping(RANDOM_SEED, Deck().cards)
     turn = 14 - len(player.hand)
 
     if turn % 2 == 1:
@@ -23,18 +28,17 @@ def playing(player, deck):
     else:
         # on even turns, expose the card with the lowest index value
         bound_card = min(player.hand, key=lambda card: cards_to_indices[card])
-
+    
     return player.hand.index(bound_card)
 
 def guessing(player, cards, round):
     """
     Returns a list of n Card objects to guess partner's hand, incorporating feedback from previous guesses.
     """
-    card_probs_by_index = {index: 1/52 for index in range(1, 53)}
-    partner = get_partner(player.name)
+    card_probs_by_index = {index: 1 for index in range(1, 53)}
+    partner = PARTNER_MAP[player.name]
 
-    deck = get_deck_of_cards()
-    cards_to_indices, indices_to_cards = create_card_to_index_mapping(random_seed, deck, True)
+    cards_to_indices, indices_to_cards = create_card_to_index_mapping(RANDOM_SEED, Deck().cards)
 
     all_other_cards_exposed = []
     partner_cards_exposed = []
@@ -78,36 +82,7 @@ def guessing(player, cards, round):
 
     return card_guesses
 
-def update_probs_from_guesses(card_probs_by_index, player, partner_cards_exposed, all_cards_exposed, cards_to_indices):
-    """
-    Adjusts the probabilities of remaining cards based on feedback from previous guesses.
-    """
-    
-    for guesses, c_value in zip(player.guesses, player.cVals):
-        
-        
-        continue
-
-        # exposed_in_guess = [ctuple for ctuple in ctuple_guess if ctuple in partner_ctuples_exposed]
-        # remaining_in_guess = [ctuple for ctuple in ctuple_guess if ctuple not in partner_ctuples_exposed]
-        
-        # # If cards from the guess have been exposed, update the probabilities of the remaining ones
-        # if len(exposed_in_guess) < c_value:
-        #     for ctuple in remaining_in_guess:
-        #         index = ctuples_to_indices[ctuple]
-        #         if index in card_probs_by_index:
-        #             card_probs_by_index[index] *= 1.5  # Increase probability if it's still valid
-        
-        # # If too many cards have been exposed, reduce the probabilities of remaining ones
-        # elif len(exposed_in_guess) > c_value:
-        #     for ctuple in remaining_in_guess:
-        #         index = ctuples_to_indices[ctuple]
-        #         if index in card_probs_by_index:
-        #             card_probs_by_index[index] *= 0.5  # Decrease probability
-        
-    return card_probs_by_index
-
-def create_card_to_index_mapping(seed, cards, createReverseMap=False):
+def create_card_to_index_mapping(seed, cards):
     """
     Method which maps a card to a random index between 1-52.
     """
@@ -115,25 +90,48 @@ def create_card_to_index_mapping(seed, cards, createReverseMap=False):
     indices = random.sample(range(1, 53), 52)
 
     cards_to_indices = {card: index for card, index in zip(cards, indices)}
+    indices_to_cards = {index: card for card, index in cards_to_indices.items()}
     
-    if createReverseMap:
-        indices_to_cards = {index: card for card, index in cards_to_indices.items()}
-        return cards_to_indices, indices_to_cards
-    
-    return cards_to_indices
+    return cards_to_indices, indices_to_cards
 
-def get_deck_of_cards():
-    suits = ["Hearts", "Diamonds", "Clubs", "Spades"] 
-    values = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
+def update_probs_from_guesses(card_probs_by_index, player, partner_cards_exposed, all_other_cards_exposed, cards_to_indices):
+    """
+    Adjusts the probabilities of remaining cards based on feedback from previous guesses.
     
-    return [Card(suit, value) for value in values for suit in suits]
+    - If c_value is 0, set the probability of the guessed cards to 0.
+    - If c_value is equal to the number of guesses, set the probability of the guessed cards to infinity.
+    - For partial correctness (0 < c_value < total_guesses), adjust probabilities based on the correctness ratio.
+    """
+    
+    for guesses, c_value in zip(player.guesses, player.cVals):
+        # Number of cards guessed in this round
+        total_guesses = len(guesses)
+        
+        if total_guesses == 0:
+            continue  # Skip if there are no guesses
 
-def get_partner(my_name):
-    if my_name == "North":
-        return "South"
-    elif my_name == "East":
-        return "West"
-    elif my_name == "South":
-        return "North"
-    elif my_name == "West":
-        return "East"
+        # If all guesses are correct, set their probability to infinity
+        if c_value == total_guesses:
+            for card in guesses:
+                card_index = cards_to_indices[card]
+                if card_index in card_probs_by_index:
+                    card_probs_by_index[card_index] = float('inf')  # Set to infinity
+        # If none are correct, set their probability to 0
+        elif c_value == 0:
+            for card in guesses:
+                card_index = cards_to_indices[card]
+                if card_index in card_probs_by_index:
+                    card_probs_by_index[card_index] = 0  # Set probability to 0
+        # Partial correctness: adjust probabilities proportionally
+        else:
+            correct_ratio = c_value / total_guesses
+            for card in guesses:
+                card_index = cards_to_indices[card]
+                if card_index in card_probs_by_index:
+                    # Use the correct_ratio to decide the increase or decrease
+                    if correct_ratio > 0.35:
+                        card_probs_by_index[card_index] *= 1.1  # Increase probability
+                    else:
+                        card_probs_by_index[card_index] *= 0.9  # Decrease probability
+
+    return card_probs_by_index
