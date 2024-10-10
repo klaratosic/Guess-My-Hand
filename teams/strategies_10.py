@@ -20,7 +20,7 @@ def playing(player, deck):
 
     # Reorder player's initial deck based on largest gap between adjacent cards
     reordered_indices = reorder_player_cards(my_hand)
-    print(f'reordered_indices: {reordered_indices}')
+    # print(f'reordered_indices: {reordered_indices}')
     
     # Play min_index card in odd rounds and max_index card in even rounds
     round = len(player.played_cards) + 1
@@ -84,12 +84,15 @@ def guessing(player, cards, round):
     update_available_guesses(player, available_guesses, min_idx, max_idx)
     update_probabilities(player, round, available_guesses, probabilities)
 
-    print(f'probabilities: {probabilities}')
-    
     # Return top guesses by probability
     candidate_guesses = get_candidate_guesses(round, probabilities, use_argmax=True)
-    print(f'candidate_guesses: {candidate_guesses}')
     guesses = [card for card in cards if convert_card_to_index(card) in candidate_guesses]
+    
+    # DEBUG
+    print(f'probabilities: {probabilities}')
+    guess_indices = [convert_card_to_index(card) for card in guesses]
+    print(f'guesses: {guess_indices}, cVals: {player.cVals}')
+
     return guesses
 
 
@@ -145,23 +148,25 @@ def update_probabilities(player, round, available_guesses, probabilities):
     opponents_names = opponents[player.name]
 
     for i in range(round - 1):
+        # Compute accuracy based on cVals and exposed cards
         numerator = player.cVals[i]
         denominator = OPENING_HAND_SIZE - 1 - i
         for card in player.guesses[i]:
+            # Decrement numerator and denominator if partner card is exposed
             if card in player.exposed_cards[partner_name]:
                 numerator -= 1
                 denominator -= 1
+            # Decrement denominator if opponent card is exposed
             if card in player.exposed_cards[opponents_names[0]] or \
                 card in player.exposed_cards[opponents_names[1]]:
                 denominator -= 1
+        accuracy = numerator / denominator if denominator > 0 else 0
+
+        # Update probabilities based on accuracy
+        for card in player.guesses[i]:
             card_idx = convert_card_to_index(card)
-            accuracy = numerator / denominator if denominator > 0 else 0
             if available_guesses[card_idx] and probabilities[card_idx] > 0 and probabilities[card_idx] < 1:
-                # Update probability based on weighted average, except for 0 and 1 probabilities
-                if accuracy != 0 and accuracy != 1:
-                    probabilities[card_idx] = (probabilities[card_idx] * i + accuracy) / (i + 1)
-                else:
-                    probabilities[card_idx] = accuracy
+                probabilities[card_idx] = accuracy
 
 
 def get_candidate_guesses(round, probabilities, use_argmax=True):
