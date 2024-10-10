@@ -20,6 +20,7 @@ def playing(player, deck):
 
     # Reorder player's initial deck based on largest gap between adjacent cards
     reordered_indices = reorder_player_cards(my_hand)
+    print(f'reordered_indices: {reordered_indices}')
     
     # Play min_index card in odd rounds and max_index card in even rounds
     round = len(player.played_cards) + 1
@@ -82,9 +83,12 @@ def guessing(player, cards, round):
     # Update available guesses and probabilities
     update_available_guesses(player, available_guesses, min_idx, max_idx)
     update_probabilities(player, round, available_guesses, probabilities)
+
+    print(f'probabilities: {probabilities}')
     
     # Return top guesses by probability
-    candidate_guesses = probabilities.argsort()[::-1][:13-round]
+    candidate_guesses = get_candidate_guesses(round, probabilities, use_argmax=False)
+    print(f'candidate_guesses: {candidate_guesses}')
     guesses = [card for card in cards if convert_card_to_index(card) in candidate_guesses]
     return guesses
 
@@ -158,6 +162,19 @@ def update_probabilities(player, round, available_guesses, probabilities):
                     probabilities[card_idx] = (probabilities[card_idx] * i + accuracy) / (i + 1)
                 else:
                     probabilities[card_idx] = accuracy
+
+
+def get_candidate_guesses(round, probabilities, use_argmax=True):
+    """
+    Get candidate guesses by max probability (argmax) or multinomial sampling (multinomial)
+    """
+    if use_argmax:
+        return probabilities.argsort()[::-1][:13-round]
+
+    print(f'sum: {np.sum(probabilities)}')
+    normalized = probabilities / np.sum(probabilities)
+    print(f'normalized: {normalized}')
+    return np.random.choice(DECK_SIZE, 13-round, replace=False, p=normalized)
 
 
 """
