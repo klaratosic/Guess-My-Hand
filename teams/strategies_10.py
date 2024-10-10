@@ -87,7 +87,7 @@ def guessing(player, cards, round):
     print(f'probabilities: {probabilities}')
     
     # Return top guesses by probability
-    candidate_guesses = get_candidate_guesses(round, probabilities, use_argmax=False)
+    candidate_guesses = get_candidate_guesses(round, probabilities, use_argmax=True)
     print(f'candidate_guesses: {candidate_guesses}')
     guesses = [card for card in cards if convert_card_to_index(card) in candidate_guesses]
     return guesses
@@ -168,12 +168,16 @@ def get_candidate_guesses(round, probabilities, use_argmax=True):
     """
     Get candidate guesses by max probability (argmax) or multinomial sampling (multinomial)
     """
+    # Return top guesses by probability
     if use_argmax:
         return probabilities.argsort()[::-1][:13-round]
 
-    print(f'sum: {np.sum(probabilities)}')
+    # Return empty list if all probabilities are zero (error check for random.choice)
+    if np.sum(probabilities) == 0:
+        return []
+    
+    # Multinomial sampling
     normalized = probabilities / np.sum(probabilities)
-    print(f'normalized: {normalized}')
     return np.random.choice(DECK_SIZE, 13-round, replace=False, p=normalized)
 
 
