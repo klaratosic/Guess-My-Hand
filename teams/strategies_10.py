@@ -2,6 +2,9 @@ import numpy as np
 from CardGame import Card
 
 
+"""
+Functions for playing strategy
+"""
 def playing(player, deck):
     """
     Wrap-around min-max strategy
@@ -15,6 +18,19 @@ def playing(player, deck):
         card_idx = convert_card_to_index(my_card)
         my_hand[card_idx] = True
 
+    # Reorder player's initial deck based on largest gap between adjacent cards
+    reordered_indices = reorder_player_cards(my_hand)
+    
+    # Play min_index card in odd rounds and max_index card in even rounds
+    round = len(player.played_cards) + 1
+    is_max = round % 2 == 0
+    return play_next_available_card(player, reordered_indices, is_max)
+            
+
+def reorder_player_cards(my_hand):
+    """
+    Reorder player's initial deck based on largest gap between adjacent cards
+    """
     # Find largest gap between adjacent cards and update min_index.
     # NOTE: min_index is the higher end of the gap (i.e., wrap-around).
     my_hand_indices = np.where(my_hand)[0]
@@ -32,27 +48,26 @@ def playing(player, deck):
         max_gap = wrap_around_gap
         min_index = my_hand_indices[0]
 
-    # Play min_index card in odd rounds and max_index card in even rounds
+    # Reorder deck based on min_index
     start_idx = np.where(my_hand_indices == min_index)[0][0]
     reordered_indices = np.concatenate((my_hand_indices[start_idx:], my_hand_indices[:start_idx]))
-    
-    # print(f'reordered_indices: {reordered_indices}')
-    
-    round = len(player.played_cards) + 1
-    if round % 2 == 1:
-        # Play min_index card
-        for idx in reordered_indices:
-            card = convert_index_to_card(idx)
-            if card in player.hand:
-                return player.hand.index(card)
-    else:
-        # Play max_index card
-        for idx in reordered_indices[::-1]:
-            card = convert_index_to_card(idx)
-            if card in player.hand:
-                return player.hand.index(card)
-            
+    return reordered_indices
 
+
+def play_next_available_card(player, reordered_indices, is_max):
+    """
+    Play next available min or max card in hand
+    """
+    indices = reordered_indices[::-1] if is_max else reordered_indices
+    for idx in indices:
+        card = convert_index_to_card(idx)
+        if card in player.hand:
+            return player.hand.index(card)
+
+
+"""
+Functions for guessing strategy
+"""
 def guessing(player, cards, round):
     """
     Update available guesses and probabilities and return the top guesses by probability
@@ -61,7 +76,23 @@ def guessing(player, cards, round):
     available_guesses = np.ones(DECK_SIZE, dtype=bool)
     probabilities = np.full(DECK_SIZE, PAR_PROBABILITY, dtype=float)
 
-    # Track partner's min/max
+    # Set wrap-around min/max based on partner's exposed cards
+    min_idx, max_idx = set_min_max(player, round)
+
+    # Update available guesses and probabilities
+    update_available_guesses(player, available_guesses, min_idx, max_idx)
+    update_probabilities(player, round, available_guesses, probabilities)
+    
+    # Return top guesses by probability
+    candidate_guesses = probabilities.argsort()[::-1][:13-round]
+    guesses = [card for card in cards if convert_card_to_index(card) in candidate_guesses]
+    return guesses
+
+
+def set_min_max(player, round):
+    """
+    Set wrap-around min/max based on partner's exposed cards
+    """
     partner_name = partner[player.name]
     if round % 2 == 1:
         min_card = player.exposed_cards[partner_name][-1]
@@ -72,18 +103,7 @@ def guessing(player, cards, round):
 
     min_idx = convert_card_to_index(min_card)
     max_idx = convert_card_to_index(max_card) if max_card else (min_idx - 4) % DECK_SIZE
-
-    # Update available guesses and probabilities
-    update_available_guesses(player, available_guesses, min_idx, max_idx)
-    update_probabilities(player, round, available_guesses, probabilities)
-
-    # Debugging
-    # print(f'probabilities: {probabilities}')
-    
-    # Return top guesses by probability
-    candidate_guesses = probabilities.argsort()[::-1][:13-round]
-    guesses = [card for card in cards if convert_card_to_index(card) in candidate_guesses]
-    return guesses
+    return min_idx, max_idx
 
 
 def update_available_guesses(player, available_guesses, min_idx, max_idx):
@@ -119,7 +139,7 @@ def update_probabilities(player, round, available_guesses, probabilities):
     # Update probabilities based on previous rounds' guesses and cVals
     partner_name = partner[player.name]
     opponents_names = opponents[player.name]
-    
+
     for i in range(round - 1):
         numerator = player.cVals[i]
         denominator = OPENING_HAND_SIZE - 1 - i
@@ -132,10 +152,17 @@ def update_probabilities(player, round, available_guesses, probabilities):
                 denominator -= 1
             card_idx = convert_card_to_index(card)
             accuracy = numerator / denominator if denominator > 0 else 0
-            if available_guesses[card_idx]:
-                probabilities[card_idx] = accuracy
+            if available_guesses[card_idx] and probabilities[card_idx] > 0 and probabilities[card_idx] < 1:
+                # Update probability based on weighted average, except for 0 and 1 probabilities
+                if accuracy != 0 and accuracy != 1:
+                    probabilities[card_idx] = (probabilities[card_idx] * i + accuracy) / (i + 1)
+                else:
+                    probabilities[card_idx] = accuracy
 
 
+"""
+Helper functions
+"""
 def convert_card_to_index(card):
     """
     Convert Card object to an index ranking by value then suit
