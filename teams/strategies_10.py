@@ -37,7 +37,7 @@ def reorder_player_cards(my_hand):
     my_hand_indices = np.where(my_hand)[0]
     max_gap = 0
     min_index = None
-    for i in range(OPENING_HAND_SIZE - 1):
+    for i in range(NUM_ROUNDS - 1):
         gap = my_hand_indices[i+1] - my_hand_indices[i]
         if gap > max_gap:
             max_gap = gap
@@ -89,7 +89,7 @@ def guessing(player, cards, round):
     guesses = [card for card in cards if convert_card_to_index(card) in candidate_guesses]
     
     # DEBUG
-    print(f'probabilities: {probabilities}')
+    # print(f'probabilities: {probabilities}')
     guess_indices = [convert_card_to_index(card) for card in guesses]
     print(f'guesses: {guess_indices}, cVals: {player.cVals}')
 
@@ -147,26 +147,50 @@ def update_probabilities(player, round, available_guesses, probabilities):
     partner_name = partner[player.name]
     opponents_names = opponents[player.name]
 
+    # Compute accuracy per round (starting in round 2) based on cVals and exposed cards
+    numerators = np.zeros(NUM_ROUNDS - 1, dtype=float)
+    denominators = np.zeros(NUM_ROUNDS - 1, dtype=float)
+    accuracies = np.zeros(NUM_ROUNDS - 1, dtype=float)
     for i in range(round - 1):
         # Compute accuracy based on cVals and exposed cards
         numerator = player.cVals[i]
-        denominator = OPENING_HAND_SIZE - 1 - i
+        denominator = NUM_ROUNDS - 1 - i
+        print(f'Round: {i+1}, numerator: {numerator}, denominator: {denominator}')
+
+        # [TODO] Find cards played in consecutive rounds and adjust accuracy of new cards
+        if i >= 1:
+            prev_guesses = [convert_card_to_index(card) for card in player.guesses[i-1]]
+            adj_prev_guesses = [guess for guess in prev_guesses if available_guesses[guess]]
+            curr_guesses = [convert_card_to_index(card) for card in player.guesses[i]]
+            print(f'prev_guesses: {prev_guesses}, adj_prev_guesses: {adj_prev_guesses}, curr_guesses: {curr_guesses}')
+            new_guesses = [guess for guess in curr_guesses if guess not in adj_prev_guesses]
+            print(f'new_guesses: {new_guesses}')
+            # compute new guesses accuracy
+            if len(new_guesses) + len(adj_prev_guesses) == len(curr_guesses):
+                new_numerator = numerator - numerators[i-1]
+                new_denominator = denominator - denominators[i-1]
+                new_accuracy = new_numerator / new_denominator if new_denominator > 0 else 0
+                print(f'new_numerator: {new_numerator}, new_denominator: {new_denominator}, new_accuracy: {new_accuracy}')
+
         for card in player.guesses[i]:
-            # Decrement numerator and denominator if partner card is exposed
+            # Decrement denominator if card is not available (including partner card)
+            if convert_card_to_index(card) in np.where(~available_guesses)[0]:
+                denominator -= 1
+            # Decrement numerator if partner card is exposed
             if card in player.exposed_cards[partner_name]:
                 numerator -= 1
-                denominator -= 1
-            # Decrement denominator if opponent card is exposed
-            if card in player.exposed_cards[opponents_names[0]] or \
-                card in player.exposed_cards[opponents_names[1]]:
-                denominator -= 1
-        accuracy = numerator / denominator if denominator > 0 else 0
+            
+        # TODO: Update probabilities based on new accuracy    
+        numerators[i] = numerator
+        denominators[i] = denominator
+        accuracies[i] = numerator / denominator if denominator > 0 else 0
+        print(f'POST -- numer: {numerator}, denom: {denominator}, acc: {accuracies[i]}')
 
         # Update probabilities based on accuracy
         for card in player.guesses[i]:
             card_idx = convert_card_to_index(card)
             if available_guesses[card_idx] and probabilities[card_idx] > 0 and probabilities[card_idx] < 1:
-                probabilities[card_idx] = accuracy
+                probabilities[card_idx] = accuracies[i]
 
 
 def get_candidate_guesses(round, probabilities, use_argmax=True):
@@ -213,7 +237,7 @@ def convert_index_to_card(index):
 Static global variables
 """
 DECK_SIZE = 52
-OPENING_HAND_SIZE = 13
+NUM_ROUNDS = 13
 PAR_PROBABILITY = 1/3
 
 suit_to_idx = {"Diamonds": 0, "Clubs": 1, "Hearts": 2, "Spades": 3}
