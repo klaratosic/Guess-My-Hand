@@ -89,7 +89,7 @@ def guessing(player, cards, round):
     guesses = [card for card in cards if convert_card_to_index(card) in candidate_guesses]
     
     # DEBUG
-    # print(f'probabilities: {probabilities}')
+    print(f'probabilities: {probabilities}')
     guess_indices = [convert_card_to_index(card) for card in guesses]
     print(f'guesses: {guess_indices}, cVals: {player.cVals}')
 
@@ -140,57 +140,84 @@ def update_probabilities(player, round, available_guesses, probabilities):
     """
     Update probabilities by various strategies
     """
-    # Set unavailable cards to zero probability
     probabilities[~available_guesses] = 0
-
-    # Update probabilities based on previous rounds' guesses and cVals
     partner_name = partner[player.name]
-    opponents_names = opponents[player.name]
+    adj_numerators = np.zeros(NUM_ROUNDS - 1, dtype=int)
+    adj_denominators = np.zeros(NUM_ROUNDS - 1, dtype=int)
 
     # Compute accuracy per round (starting in round 2) based on cVals and exposed cards
-    numerators = np.zeros(NUM_ROUNDS - 1, dtype=float)
-    denominators = np.zeros(NUM_ROUNDS - 1, dtype=float)
-    accuracies = np.zeros(NUM_ROUNDS - 1, dtype=float)
     for i in range(round - 1):
-        # Compute accuracy based on cVals and exposed cards
         numerator = player.cVals[i]
         denominator = NUM_ROUNDS - 1 - i
-        print(f'Round: {i+1}, numerator: {numerator}, denominator: {denominator}')
+        curr_guesses = [convert_card_to_index(card) for card in player.guesses[i]]
+        new_guesses = []
+        new_numerator = 0
+        new_denominator = 0
 
-        # [TODO] Find cards played in consecutive rounds and adjust accuracy of new cards
+        print(f'Round {i+1}')
+        print(f'curr_guesses: {curr_guesses}')
+        print(f'PRE-numerator: {numerator}, denominator: {denominator}, accuracy: {numerator/denominator}')
+        print(f'PRE-probabilities: {probabilities}\n')
+
         if i >= 1:
+            # Calculate accuracy of new guesses by backing up repeated previous guesses
             prev_guesses = [convert_card_to_index(card) for card in player.guesses[i-1]]
             adj_prev_guesses = [guess for guess in prev_guesses if available_guesses[guess]]
-            curr_guesses = [convert_card_to_index(card) for card in player.guesses[i]]
-            print(f'prev_guesses: {prev_guesses}, adj_prev_guesses: {adj_prev_guesses}, curr_guesses: {curr_guesses}')
             new_guesses = [guess for guess in curr_guesses if guess not in adj_prev_guesses]
-            print(f'new_guesses: {new_guesses}')
-            # compute new guesses accuracy
-            if len(new_guesses) + len(adj_prev_guesses) == len(curr_guesses):
-                new_numerator = numerator - numerators[i-1]
-                new_denominator = denominator - denominators[i-1]
-                new_accuracy = new_numerator / new_denominator if new_denominator > 0 else 0
-                print(f'new_numerator: {new_numerator}, new_denominator: {new_denominator}, new_accuracy: {new_accuracy}')
 
-        for card in player.guesses[i]:
+            # Process new guesses only if there are repeated previous guesses
+            if len(new_guesses) + len(adj_prev_guesses) == len(curr_guesses):
+                new_numerator = numerator - adj_numerators[i-1]
+                new_denominator = denominator - adj_denominators[i-1]
+                print(f'PRE: new_numerator: {new_numerator}, new_denominator: {new_denominator}')
+                for guess in new_guesses:
+                    # Decrement denominator if card is not available (including partner card)
+                    if guess in np.where(~available_guesses)[0]:
+                        new_denominator -= 1
+                        denominator -= 1
+                    # Decrement numerator if partner card is exposed
+                    if convert_index_to_card(guess) in player.exposed_cards[partner_name]:
+                        new_numerator -= 1
+                        numerator -= 1
+                new_accuracy = new_numerator / new_denominator if new_denominator > 0 else 0
+                # Update probabilities based on new accuracy if still available
+                for guess in new_guesses:
+                    if available_guesses[guess] and probabilities[guess] > 0 and probabilities[guess] < 1:
+                        probabilities[guess] = new_accuracy
+                print(f'new_guesses: {new_guesses}, adj_prev_guesses: {adj_prev_guesses}')
+                print(f'new_numerator: {new_numerator}, new_denominator: {new_denominator}, new_accuracy: {new_accuracy}')
+                print(f'MID-probabilities: {probabilities}\n')
+
+        old_guesses = [guess for guess in curr_guesses if guess not in new_guesses]
+        adj_old_guesses = [guess for guess in old_guesses if available_guesses[guess]]
+        
+        for guess in old_guesses:
             # Decrement denominator if card is not available (including partner card)
-            if convert_card_to_index(card) in np.where(~available_guesses)[0]:
+            if guess in np.where(~available_guesses)[0]:
                 denominator -= 1
             # Decrement numerator if partner card is exposed
-            if card in player.exposed_cards[partner_name]:
+            if convert_index_to_card(guess) in player.exposed_cards[partner_name]:
                 numerator -= 1
-            
-        # TODO: Update probabilities based on new accuracy    
-        numerators[i] = numerator
-        denominators[i] = denominator
-        accuracies[i] = numerator / denominator if denominator > 0 else 0
-        print(f'POST -- numer: {numerator}, denom: {denominator}, acc: {accuracies[i]}')
+
+        print(f'old_guesses: {old_guesses}, adj_old_guesses: {adj_old_guesses}')
+        print(f'numerator: {numerator}, denominator: {denominator}, accuracy: {numerator/denominator}\n')
+
+        # TODO: Update probabilities based on new accuracy
+        adj_numerators[i] = numerator
+        adj_denominators[i] = denominator
+        old_numerator = numerator - new_numerator
+        old_denominator = denominator - new_denominator
+        accuracy = old_numerator / old_denominator if old_denominator > 0 else 0
+
+        print(f'adj_numerators: {adj_numerators}, adj_denominators: {adj_denominators}\n')
+        print(f'old_numerator: {old_numerator}, old_denominator: {old_denominator}, accuracy: {accuracy}\n')
 
         # Update probabilities based on accuracy
-        for card in player.guesses[i]:
-            card_idx = convert_card_to_index(card)
-            if available_guesses[card_idx] and probabilities[card_idx] > 0 and probabilities[card_idx] < 1:
-                probabilities[card_idx] = accuracies[i]
+        for guess in old_guesses:
+            if available_guesses[guess] and probabilities[guess] > 0 and probabilities[guess] < 1:
+                probabilities[guess] = accuracy
+
+        print(f'POST-probabilities: {probabilities}\n')
 
 
 def get_candidate_guesses(round, probabilities, use_argmax=True):
