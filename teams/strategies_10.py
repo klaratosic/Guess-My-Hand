@@ -140,6 +140,7 @@ def update_probabilities(player, round, available_guesses, probabilities):
     """
     Update probabilities by various strategies
     """
+    print(f'Available guesses: {np.where(available_guesses)[0]}')
     probabilities[~available_guesses] = 0
     partner_name = partner[player.name]
     adj_numerators = np.zeros(NUM_ROUNDS - 1, dtype=int)
@@ -200,9 +201,9 @@ def update_probabilities(player, round, available_guesses, probabilities):
                 numerator -= 1
 
         print(f'old_guesses: {old_guesses}, adj_old_guesses: {adj_old_guesses}')
-        print(f'numerator: {numerator}, denominator: {denominator}, accuracy: {numerator/denominator}\n')
+        print(f'numerator: {numerator}, denominator: {denominator}\n')
 
-        # TODO: Update probabilities based on new accuracy
+        # Update adjusted numerators and denominators
         adj_numerators[i] = numerator
         adj_denominators[i] = denominator
         old_numerator = numerator - new_numerator
@@ -212,7 +213,7 @@ def update_probabilities(player, round, available_guesses, probabilities):
         print(f'adj_numerators: {adj_numerators}, adj_denominators: {adj_denominators}\n')
         print(f'old_numerator: {old_numerator}, old_denominator: {old_denominator}, accuracy: {accuracy}\n')
 
-        # Update probabilities based on accuracy
+        # Update probabilities of old guesses
         for guess in old_guesses:
             if available_guesses[guess] and probabilities[guess] > 0 and probabilities[guess] < 1:
                 probabilities[guess] = accuracy
