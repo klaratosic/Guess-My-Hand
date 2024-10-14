@@ -148,25 +148,26 @@ def update_probabilities(player, round, available_guesses, probabilities):
 
     # Compute accuracy per round (starting in round 2) based on cVals and exposed cards
     for i in range(round - 1):
-        print(f'round: {i+1}')
+        print(f'round: {i+1}, available guesses: {np.where(available_guesses)}')
         numerator = player.cVals[i]
         denominator = NUM_ROUNDS - 1 - i
         curr_guesses = [convert_card_to_index(card) for card in player.guesses[i]]
         new_guesses = []
         new_numerator = 0
         new_denominator = 0
-        print(f'PRE: numerator: {numerator}, denominator: {denominator}')
+        print(f'PRE: curr guesses: {curr_guesses}, numerator: {numerator}, denominator: {denominator}')
 
         if i >= 1:
             # Calculate accuracy of new guesses by backing up repeated previous guesses
             prev_guesses = [convert_card_to_index(card) for card in player.guesses[i-1]]
-            adj_prev_guesses = [guess for guess in prev_guesses if available_guesses[guess]]
-            new_guesses = [guess for guess in curr_guesses if guess not in adj_prev_guesses]
+            new_guesses = list(set(curr_guesses) - set(prev_guesses))
+            print(f'prev guesses: {prev_guesses}, new guesses: {new_guesses}')
 
             # Process new guesses only if there are repeated previous guesses
-            if len(new_guesses) + len(adj_prev_guesses) == len(curr_guesses):
-                new_numerator = numerator - adj_numerators[i-1]
-                new_denominator = denominator - adj_denominators[i-1]
+            if len(new_guesses) != len(curr_guesses) and len(new_guesses) > 0:
+                new_numerator = max(numerator - adj_numerators[i-1], 0)
+                new_denominator = len(new_guesses)
+                print(f'new numerator: {new_numerator}, new denominator: {new_denominator}')
                 for guess in new_guesses:
                     # Decrement denominator if card is not available (including partner card)
                     if guess in np.where(~available_guesses)[0]:
@@ -187,7 +188,7 @@ def update_probabilities(player, round, available_guesses, probabilities):
         # Update probabilities of old guesses or all new guesses if no repeated previous guesses
         old_guesses = [guess for guess in curr_guesses if guess not in new_guesses]
         guesses = old_guesses if old_guesses else curr_guesses
-        print(f'guesses: {guesses}')
+        print(f'old guesses: {old_guesses}, guesses: {guesses}')
         for guess in guesses:
             # Decrement denominator if card is not available (including partner card)
             if guess in np.where(~available_guesses)[0]:
