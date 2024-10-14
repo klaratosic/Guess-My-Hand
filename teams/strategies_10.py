@@ -213,8 +213,9 @@ def update_probabilities(player, round, available_guesses, probabilities):
         print(f'adj_numerators: {adj_numerators}, adj_denominators: {adj_denominators}\n')
         print(f'old_numerator: {old_numerator}, old_denominator: {old_denominator}, accuracy: {accuracy}\n')
 
-        # Update probabilities of old guesses
-        for guess in old_guesses:
+        # Update probabilities of old guesses or all new guesses if no repeated previous guesses
+        guesses = old_guesses if old_guesses else curr_guesses
+        for guess in guesses:
             if available_guesses[guess] and probabilities[guess] > 0 and probabilities[guess] < 1:
                 probabilities[guess] = accuracy
 
