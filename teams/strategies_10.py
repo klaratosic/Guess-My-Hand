@@ -20,7 +20,8 @@ def playing(player, deck):
 
     # Reorder player's initial deck based on largest gap between adjacent cards
     reordered_indices = reorder_player_cards(my_hand)
-    # print(f'reordered_indices: {reordered_indices}')
+    # reordered_indices = np.where(my_hand)[0]
+    # print(f'reordered_indices: {reordered_indices}\n')
     
     # Play min_index card in odd rounds and max_index card in even rounds
     round = len(player.played_cards) + 1
