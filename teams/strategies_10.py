@@ -105,6 +105,7 @@ def set_min_max(player, round):
     if round % 2 == 1:
         min_card = player.exposed_cards[partner_name][-1]
         max_card = player.exposed_cards[partner_name][-2] if round > 1 else None
+        # max_card = player.exposed_cards[partner_name][-2] if round > 1 else convert_index_to_card(DECK_SIZE - 1)
     else:
         max_card = player.exposed_cards[partner_name][-1]
         min_card = player.exposed_cards[partner_name][-2]
@@ -133,8 +134,14 @@ def update_available_guesses(player, available_guesses, min_idx, max_idx):
             available_guesses[card_idx] = False
 
     # Remove cards outside of partner's min/max
-    for i in range(max_idx + 1, min_idx):
-        available_guesses[i % DECK_SIZE] = False
+    if max_idx < min_idx:
+        for i in range(max_idx + 1, min_idx):
+            available_guesses[i % DECK_SIZE] = False
+    else:
+        for i in range(max_idx + 1, DECK_SIZE):
+            available_guesses[i] = False
+        for i in range(min_idx):
+            available_guesses[i] = False
 
 
 def update_probabilities(player, round, available_guesses, probabilities):
