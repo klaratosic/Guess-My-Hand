@@ -236,9 +236,9 @@ def get_candidate_guesses(round, probabilities, min_idx, max_idx, use_argmax=Tru
             mean_idx = (min_idx + min_to_mean) % DECK_SIZE
         DPrint(f'min_idx: {min_idx}, max_idx: {max_idx}, mean_idx: {mean_idx}')
 
-        par_indices = np.where(probabilities == PAR_PROBABILITY)[0]
-        DPrint(f'par indices: {par_indices}')
-        for idx in par_indices:
+        # Assign mean advantage to cards closer to mean_idx
+        indices = np.where(probabilities == PAR_PROBABILITY)[0]
+        for idx in indices:
             probabilities[idx] += (min_to_mean - abs(idx - mean_idx)) / min_to_mean * MEAN_ADVANTAGE
 
         return probabilities.argsort()[::-1][:13-round]
@@ -281,7 +281,7 @@ Static global variables
 DECK_SIZE = 52
 NUM_ROUNDS = 13
 PAR_PROBABILITY = 1/3
-MEAN_ADVANTAGE = 0.2
+MEAN_ADVANTAGE = 0.01
 
 suit_to_idx = {"Diamonds": 0, "Clubs": 1, "Hearts": 2, "Spades": 3}
 value_to_idx = {
