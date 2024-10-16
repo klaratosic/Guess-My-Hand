@@ -2,6 +2,7 @@ import numpy as np
 from CardGame import Card
 
 
+WrapAround = True
 Debug = False
 
 def DPrint(*args, **kwargs):
@@ -25,8 +26,10 @@ def playing(player, deck):
         my_hand[card_idx] = True
 
     # Reorder player's initial deck based on largest gap between adjacent cards
-    reordered_indices = reorder_player_cards(my_hand)
-    # reordered_indices = np.where(my_hand)[0]
+    if WrapAround:
+        reordered_indices = reorder_player_cards(my_hand)
+    else:
+        reordered_indices = np.where(my_hand)[0]
     DPrint(f'reordered indices: {reordered_indices}\n')
     
     # Play min_index card in odd rounds and max_index card in even rounds
@@ -108,8 +111,10 @@ def set_min_max(player, round):
     partner_name = partner[player.name]
     if round % 2 == 1:
         min_card = player.exposed_cards[partner_name][-1]
-        max_card = player.exposed_cards[partner_name][-2] if round > 1 else None
-        # max_card = player.exposed_cards[partner_name][-2] if round > 1 else convert_index_to_card(DECK_SIZE - 1)
+        if WrapAround:
+            max_card = player.exposed_cards[partner_name][-2] if round > 1 else None
+        else:
+            max_card = player.exposed_cards[partner_name][-2] if round > 1 else convert_index_to_card(DECK_SIZE - 1)
     else:
         max_card = player.exposed_cards[partner_name][-1]
         min_card = player.exposed_cards[partner_name][-2]
