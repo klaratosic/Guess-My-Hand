@@ -92,7 +92,7 @@ def guessing(player, cards, round):
     update_probabilities(player, round, available_guesses, probabilities)
 
     # Return top guesses by probability
-    candidate_guesses = get_candidate_guesses(round, probabilities, use_argmax=True)
+    candidate_guesses = get_candidate_guesses(round, probabilities, min_idx, max_idx, use_argmax=True)
     guesses = [card for card in cards if convert_card_to_index(card) in candidate_guesses]
     
     DPrint(f'probabilities: {probabilities}')
@@ -222,12 +222,25 @@ def update_probabilities(player, round, available_guesses, probabilities):
                 probabilities[guess] = accuracy
 
 
-def get_candidate_guesses(round, probabilities, use_argmax=True):
+def get_candidate_guesses(round, probabilities, min_idx, max_idx, use_argmax=True):
     """
     Get candidate guesses by max probability (argmax) or multinomial sampling (multinomial)
     """
     # Return top guesses by probability
     if use_argmax:
+        if min_idx < max_idx:
+            min_to_mean = (max_idx - min_idx) // 2
+            mean_idx = (min_idx + max_idx) // 2
+        else:
+            min_to_mean = (DECK_SIZE - (min_idx - max_idx)) // 2
+            mean_idx = (min_idx + min_to_mean) % DECK_SIZE
+        DPrint(f'min_idx: {min_idx}, max_idx: {max_idx}, mean_idx: {mean_idx}')
+
+        par_indices = np.where(probabilities == PAR_PROBABILITY)[0]
+        DPrint(f'par indices: {par_indices}')
+        for idx in par_indices:
+            probabilities[idx] += (min_to_mean - abs(idx - mean_idx)) / min_to_mean * MEAN_ADVANTAGE
+
         return probabilities.argsort()[::-1][:13-round]
 
     # Return empty list if all probabilities are zero (error check for random.choice)
@@ -268,6 +281,7 @@ Static global variables
 DECK_SIZE = 52
 NUM_ROUNDS = 13
 PAR_PROBABILITY = 1/3
+MEAN_ADVANTAGE = 0.2
 
 suit_to_idx = {"Diamonds": 0, "Clubs": 1, "Hearts": 2, "Spades": 3}
 value_to_idx = {
