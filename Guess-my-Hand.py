@@ -9,10 +9,12 @@ import numpy as np
 import logging
 import functools
 import io
+import os
 import sys
 from contextlib import redirect_stdout
 from player_strategies import NorthSouthStrategy, EastWestStrategy
 from guessing_functions import NorthSouthGuess, EastWestGuess
+import csv
 
 
 
@@ -276,6 +278,15 @@ def log_output(flag):
 def create_logged_function(func, flag):
     return log_output(flag)(func)
 
+def log_results(ns, ew, score_p1, score_p2, seed):
+    filename = 'tournaments.csv'
+    file_exists = os.path.isfile(filename)
+    
+    with open(filename, 'a', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        if not file_exists:
+            writer.writerow(['P1 [NS]', 'P2 [EW]', 'Score P1', 'Score P2', 'Seed'])
+        writer.writerow([ns, ew, score_p1, score_p2, seed])
 
 def run_game_without_gui(seed):
     deck = Deck(seed)
@@ -436,6 +447,7 @@ if __name__ == "__main__":
             scores = run_game_without_gui(seed)
             partnership_scoresNS.append(scores["NS"])
             partnership_scoresEW.append(scores["EW"])
+            log_results(args.nsStrategy, args.ewStrategy, scores["NS"], scores["EW"], seed)
             seed += 1
         
         avg_scores = {
