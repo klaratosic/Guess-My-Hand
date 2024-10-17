@@ -24,7 +24,7 @@ VALUE_ORDER = {
     "K": 12,
     "A": 8,
 }
-NUM_WINDOW_ROUNDS = 10
+NUM_WINDOW_ROUNDS = 1
 
 def playing(player, deck):
     """
